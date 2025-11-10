@@ -32,6 +32,7 @@ async function run() {
     await client.connect();
     const db = client.db("AgroNet_DB");
     const cropsCollection = db.collection("crops");
+    const myCropsColl = db.collection("my-crops");
 
     // get all crops
     app.get("/crops", async (req, res) => {
@@ -59,6 +60,18 @@ async function run() {
       const crop = req.body;
       crop.created_at = new Date();
       const result = await cropsCollection.insertOne(crop);
+      res.send(result);
+    });
+
+    // get crops of logged in user
+    app.get("/my-crops", async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.ownerEmail = email;
+      }
+      const cursor = myCropsColl.find(query);
+      const result = await cursor.toArray();
       res.send(result);
     });
 
