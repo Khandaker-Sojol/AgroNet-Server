@@ -54,6 +54,14 @@ async function run() {
       res.send(result);
     });
 
+    // create new crop
+    app.post("/crops", async (req, res) => {
+      const crop = req.body;
+      crop.created_at = new Date();
+      const result = await cropsCollection.insertOne(crop);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
