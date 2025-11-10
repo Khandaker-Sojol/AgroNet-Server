@@ -30,6 +30,15 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    const db = client.db("AgroNet_DB");
+    const cropsCollection = db.collection("crops");
+
+    // get all crops
+    app.get("/crops", async (req, res) => {
+      const crops = cropsCollection.find().toArray;
+      res.send(crops);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
