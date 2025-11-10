@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const dotenv = require("dotenv");
 
 dotenv.config();
@@ -43,6 +43,14 @@ async function run() {
     app.get("/latest-crops", async (req, res) => {
       const cursor = cropsCollection.find().sort({ created_at: -1 }).limit(6);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // get single crop detail
+    app.get("/crops/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cropsCollection.findOne(query);
       res.send(result);
     });
 
