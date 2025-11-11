@@ -32,12 +32,17 @@ async function run() {
     await client.connect();
     const db = client.db("AgroNet_DB");
     const cropsCollection = db.collection("crops");
-    const myCropsColl = db.collection("my-crops");
 
     // get all crops
     app.get("/crops", async (req, res) => {
-      const crops = cropsCollection.find().toArray;
-      res.send(crops);
+      try {
+        const crops = await cropsCollection.find().toArray();
+        console.log("Fetched crops:", crops); // Add this
+        res.send(crops);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to fetch crops" });
+      }
     });
 
     // get latest 6 crops
@@ -59,6 +64,12 @@ async function run() {
     app.post("/crops", async (req, res) => {
       const crop = req.body;
       crop.created_at = new Date();
+      if (crop.ownerEmail && crop.ownerName) {
+        crop.owner = {
+          ownerEmail: crop.ownerEmail,
+          ownerName: crop.ownerName,
+        };
+      }
       const result = await cropsCollection.insertOne(crop);
       res.send(result);
     });
@@ -70,7 +81,7 @@ async function run() {
       if (email) {
         query.ownerEmail = email;
       }
-      const cursor = myCropsColl.find(query);
+      const cursor = cropsCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
