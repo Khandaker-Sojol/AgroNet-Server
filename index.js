@@ -86,6 +86,17 @@ async function run() {
       res.send(result);
     });
 
+    // Update crops by Id
+    app.put("/crops/:id", async (req, res) => {
+      const id = req.params.id;
+      const updates = req.body;
+      const result = await cropsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updates }
+      );
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
