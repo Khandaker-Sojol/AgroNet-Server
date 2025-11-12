@@ -122,6 +122,33 @@ async function run() {
       res.send(updatedCrop);
     });
 
+    // get interested crops of a user
+    app.get("/my-interests", async (req, res) => {
+      const email = req.query.email;
+      const allCrops = await cropsCollection.find().toArray();
+
+      const userInterests = [];
+
+      allCrops.forEach((crop) => {
+        if (crop.interests && Array.isArray(crop.interests)) {
+          crop.interests.forEach((interest) => {
+            if (interest.userEmail === email) {
+              userInterests.push({
+                _id: interest._id,
+                cropName: crop.cropName || crop.name || "Unknown",
+                ownerName: crop.ownerName || "Unknown",
+                ownerEmail: crop.ownerEmail || "Unknown",
+                quantity: interest.quantity,
+                message: interest.message,
+                status: interest.status || "pending",
+              });
+            }
+          });
+        }
+      });
+      res.send(userInterests);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
