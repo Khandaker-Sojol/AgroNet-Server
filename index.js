@@ -104,6 +104,19 @@ async function run() {
       res.send(result);
     });
 
+    // add interest to a crop
+    app.post("/crops/:id/interests", async (req, res) => {
+      const id = req.params.id;
+      const interest = req.body;
+      interest._id = new ObjectId();
+      const result = await cropsCollection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $push: { interests: interest } },
+        { returnDocument: "after" }
+      );
+      res.send(result.value);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
