@@ -106,15 +106,20 @@ async function run() {
 
     // add interest to a crop
     app.post("/crops/:id/interests", async (req, res) => {
-      const id = req.params.id;
+      const cropId = req.params.id;
       const interest = req.body;
-      interest._id = new ObjectId();
-      const result = await cropsCollection.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $push: { interests: interest } },
-        { returnDocument: "after" }
+      const interestId = new ObjectId();
+      const newInterest = { _id: interestId, ...interest };
+
+      await cropsCollection.updateOne(
+        { _id: new ObjectId(cropId) },
+        { $push: { interests: newInterest } }
       );
-      res.send(result.value);
+
+      const updatedCrop = await cropsCollection.findOne({
+        _id: new ObjectId(cropId),
+      });
+      res.send(updatedCrop);
     });
 
     // Send a ping to confirm a successful connection
