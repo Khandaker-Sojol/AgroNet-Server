@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const dotenv = require("dotenv");
+const admin = require("firebase-admin");
+const serviceAccount = require("./service_admin_sdk.json");
 
 dotenv.config();
 const app = express();
@@ -10,6 +12,33 @@ const port = process.env.PORT || 3000;
 // middleware
 app.use(cors());
 app.use(express.json());
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const verifyFireBaseToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized: Missing token" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized: Missing token" });
+  }
+
+  // verify id token
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken; // user info available in req.user
+    next();
+  } catch (error) {
+    console.error("Token verification failed:", error);
+    return res.status(403).send({ error: "Forbidden: Invalid token" });
+  }
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.byizzgz.mongodb.net/?appName=Cluster0`;
 
@@ -61,7 +90,7 @@ async function run() {
     });
 
     // create new crop
-    app.post("/crops", async (req, res) => {
+    app.post("/crops", verifyFireBaseToken, async (req, res) => {
       const crop = req.body;
       crop.created_at = new Date();
       if (crop.ownerEmail && crop.ownerName) {
@@ -75,7 +104,7 @@ async function run() {
     });
 
     // get crops of logged in user
-    app.get("/my-crops", async (req, res) => {
+    app.get("/my-crops", verifyFireBaseToken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
@@ -98,14 +127,14 @@ async function run() {
     });
 
     // delete crop
-    app.delete("/crops/:id", async (req, res) => {
+    app.delete("/crops/:id", verifyFireBaseToken, async (req, res) => {
       const id = req.params.id;
       const result = await cropsCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
 
     // add interest to a crop
-    app.post("/crops/:id/interests", async (req, res) => {
+    app.post("/crops/:id/interests", verifyFireBaseToken, async (req, res) => {
       const cropId = req.params.id;
       const interest = req.body;
       const interestId = new ObjectId();
