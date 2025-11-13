@@ -58,7 +58,7 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     const db = client.db("AgroNet_DB");
     const cropsCollection = db.collection("crops");
 
@@ -138,7 +138,7 @@ async function run() {
       const cropId = req.params.id;
       const interest = req.body;
       const interestId = new ObjectId();
-      const newInterest = { _id: interestId, ...interest };
+      const newInterest = { _id: new ObjectId(), interestId, ...interest };
 
       await cropsCollection.updateOne(
         { _id: new ObjectId(cropId) },
@@ -151,35 +151,78 @@ async function run() {
       res.send(updatedCrop);
     });
 
+    // add patch for accept/reject crops for owner
+    app.patch(
+      "/crops/:cropId/interests/:interestId",
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { cropId, interestId } = req.params;
+        const { action } = req.body;
+
+        if (!["accepted", "rejected"].includes(action)) {
+          return res.status(400).send({ message: "Invalid action" });
+        }
+
+        try {
+          const crop = await cropsCollection.findOne({
+            _id: new ObjectId(cropId),
+          });
+          if (!crop) return res.status(404).send({ message: "Crop not found" });
+
+          if (req.user.email !== crop.owner.ownerEmail)
+            return res.status(403).send({ message: "Forbidden: Not owner" });
+
+          const interestIndex = crop.interests.findIndex(
+            (i) => i._id.toString() === interestId
+          );
+          if (interestIndex === -1)
+            return res.status(404).send({ message: "Interest not found" });
+
+          crop.interests[interestIndex].status = action;
+
+          if (action === "accepted") {
+            crop.quantity -= crop.interests[interestIndex].quantity;
+            if (crop.quantity < 0) crop.quantity = 0;
+          }
+
+          await cropsCollection.updateOne(
+            { _id: new ObjectId(cropId) },
+            { $set: { interests: crop.interests, quantity: crop.quantity } }
+          );
+
+          res.send(crop);
+        } catch (error) {
+          console.error(error);
+          res.status(500).send({ message: "Failed to update interest" });
+        }
+      }
+    );
+
     // get interested crops of a user
-    app.get("/my-interests", async (req, res) => {
+    app.get("/my-interests", verifyFireBaseToken, async (req, res) => {
       const email = req.query.email;
       const allCrops = await cropsCollection.find().toArray();
 
-      const userInterests = [];
+      const userInterests = allCrops.flatMap((crop) =>
+        (crop.interests || [])
+          .filter((i) => i.userEmail === email)
+          .map((i) => ({
+            _id: i._id,
+            cropId: crop._id,
+            cropName: crop.cropName || crop.name || "Unknown",
+            ownerName: crop.owner.ownerName || "Unknown",
+            ownerEmail: crop.owner.ownerEmail || "Unknown",
+            quantity: i.quantity,
+            message: i.message,
+            status: i.status || "pending",
+          }))
+      );
 
-      allCrops.forEach((crop) => {
-        if (crop.interests && Array.isArray(crop.interests)) {
-          crop.interests.forEach((interest) => {
-            if (interest.userEmail === email) {
-              userInterests.push({
-                _id: interest._id,
-                cropName: crop.cropName || crop.name || "Unknown",
-                ownerName: crop.ownerName || "Unknown",
-                ownerEmail: crop.ownerEmail || "Unknown",
-                quantity: interest.quantity,
-                message: interest.message,
-                status: interest.status || "pending",
-              });
-            }
-          });
-        }
-      });
       res.send(userInterests);
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
